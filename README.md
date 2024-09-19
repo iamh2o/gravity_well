@@ -71,6 +71,8 @@ _Cal is the name ChatGPT chose for me to use with it, below is a link to our col
 - [ ] Accept a `import_manifest.tsv` file in the import top level dir which has a row for each file to import, which indicates on a per-import file basis, tags to be applied to the newly created note.
 - [ ] Add a settings field for 'tags' to apply to all notes create during a specific import.
 - [x] rearrange settings to be more user friendly
+- [x] figure out how to get working w/BRAT.
+- [ ] take a pass through the initial docs, clean up, and clearly write sections on intended use cases, features, and so on.
 - [ ] review how tags are determined
 - [ ] Better & interactive error checking of user inputs for settings, like dirs, etc.
 - [ ] Present a 'completetion' summary to the user (basically from the log).
