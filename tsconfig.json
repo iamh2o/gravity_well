@@ -1,9 +1,17 @@
 {
   "compilerOptions": {
+
+    
+    "module": "commonjs",  // Use CommonJS to be compatible with Obsidian's environment ESNext
+    "strict": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,    
+    "paths": {
+      "@handlers/*": ["handlers/*"]
+    },
     "baseUrl": ".",
     "inlineSourceMap": true,
     "inlineSources": true,
-    "module": "ESNext",
     "target": "ES6",
     "allowJs": true,
     "noImplicitAny": true,
