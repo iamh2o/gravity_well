@@ -159,3 +159,4 @@ _Cal is the name ChatGPT chose for me to use with it, [this is the transcript of
 ## Cals Observations
 _I'll provide Cal with the transcript of our work, and my observations, and ask for it to provide its own observations.  I'll post them here when I have them._
 ...
+ 
