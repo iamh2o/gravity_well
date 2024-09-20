@@ -1,8 +1,8 @@
 {
     "id": "gravity_well",
     "name": "gravity_well",
-    "version": "0.1.15",
-    "description": "A tool to import text, markdown, and PDF files into Obsidian.",
+    "version": "0.1.16",
+    "description": "A tool to import text, markdown, and PDF files as new notes, add NPL derived tags, and track other properties.",
     "main": "main.js",
     "scripts": {
         "eslint": "eslint . --ext .ts,.tsx --fix",
