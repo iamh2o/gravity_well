@@ -1,10 +1,14 @@
 {
 	"id": "gravity_well",
     "name": "Gravity Well",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "minAppVersion": "0.12.0",
     "description": "A tool to import text, markdown, and PDF files into Obsidian as new notes, add NPL derived tags, and track other properties.",
     "author": "John Major & Cal (chatgpt4o)",
-    "authorUrl": "https://github.com/iamh2o",
+    "authorUrl": "https://github.com/iamh2o/mirror_mirror",
+    "fundingUrl": {
+		"Buy Me a Coffee": "https://ko-fi.com/jemiamh2o",
+		"Visit my site": "https://github.com/iamh2o/"
+	},
     "isDesktopOnly": false
 }
