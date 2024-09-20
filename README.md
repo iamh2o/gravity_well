@@ -50,6 +50,11 @@ Gravity Well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NL
 - do [ ] Make the max size (currently 2MB) of files to import configurable. FYI-  this was set b/c `pfs` around this size or larger were doing weird things when rendered in obsidian.
 - do [ ] block accepting any file extensions other than `pdf,txt,md`.
 - do [ ] Alter the note creation to always happen in the gravity_well top level directory, and to occur in datetime named folders within it instead of allowing user specification. This would make the import process more predictable, easier to manage and less likely to cause catastrophe!
+- do [ ] Add screenshots of the UI elements to this README.
+- do [ ] Review plugin page presented in obsidian.
+- do [ ] Add a graviry well icon to the plugin.
+- do [ ] Extract transcript w/Cal and ask its options of it.
+- do [ ] Final review with Cal gating submission to Obsidian Community Plugins.
 
 ## Disclaimers
 - The plugin will access files outside of the vault structure. Which is not encouraged for obsidian plugins. However, this is done only at the prompting of the user, the import process is not destructive, and all aspects of the import process to identify candidate files are configurable by the user.
