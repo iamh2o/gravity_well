@@ -1,6 +1,6 @@
 // File: handlers/FileHandler.ts
 
-import { TFile, TFolder, Vault, App, normalizePath } from 'obsidian';
+import { TFile, TFolder, Vault, App, normalizePath, Notice } from 'obsidian';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -8,7 +8,6 @@ import * as pdfjsLib from 'pdfjs-dist';
 import winkNLP from 'wink-nlp';
 import model from 'wink-eng-lite-web-model';
 import natural from 'natural';
-
 
 console.log("Model Loaded:", model);
 // Initialize wink-nlp
@@ -18,13 +17,11 @@ const its = nlp.its;
 console.log("Model Loaded:", model);
 console.log("Wink NLP Initialized:", nlp);
 
-
 // Set the workerSrc to the provided URL
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-
 // Define custom stop words
-const customStopWords = new Set([
+const customStopWords: Set<string> = new Set([
     'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any',
     'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below',
     'between', 'both', 'but', 'by', "can't", 'cannot', 'could', "couldn't", 'did',
@@ -60,7 +57,6 @@ export class FileHandler {
     async processFiles(settings: any) {
         const {
             importDirectory,
-            targetDirectory = '',
             fileExtensions,
             maxRecursionDepth = 0,
             replicateFolderStructure = true,
@@ -72,15 +68,45 @@ export class FileHandler {
             createInternalLinks = true,
             addFileMetadata = true,
             detectAdditionalMetadata = false,
+            globalTags = '',
+            maxFileSizeMB = 2,
         } = settings;
 
         console.log(`Starting file processing in directory: ${importDirectory} with extensions: ${fileExtensions}`);
 
-        // Normalize and split extensions into an array
+        // Validate file extensions
+        const allowedExtensions = ['txt', 'md', 'pdf'];
         const extensionsArray = fileExtensions.split(',').map((ext: string) => ext.trim().toLowerCase());
+        const invalidExtensions = extensionsArray.filter((ext: string) => !allowedExtensions.includes(ext));
+
+        if (invalidExtensions.length > 0) {
+            new Notice('Invalid file extensions: ' + invalidExtensions.join(', ') + '. Only txt, md, pdf are allowed.');
+            return;
+        }
+
+        // Set the base target directory to 'gravity_well'
+        const baseTargetDirectory = 'gravity_well';
+
+        // Generate timestamped subdirectory
+        const now = new Date();
+        const formattedDate = `${now.getFullYear()}-${(now.getMonth() + 1)
+            .toString()
+            .padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}_${now.getHours()
+            .toString()
+            .padStart(2, '0')}-${now.getMinutes().toString()
+            .padStart(2, '0')}-${now
+            .getSeconds()
+            .toString()
+            .padStart(2, '0')}`;
+
+        const targetDirectory = path.join(baseTargetDirectory, formattedDate);
 
         // Traverse the directory and get the files
         const files = await traverseDirectory(importDirectory, extensionsArray, maxRecursionDepth);
+
+        const totalFilesDiscovered = files.length;
+        let totalNotesCreated = 0;
+        let totalFailures = 0;
 
         // Collect note titles for internal linking
         const noteTitles = files.map(file => path.basename(file, path.extname(file)));
@@ -95,14 +121,15 @@ export class FileHandler {
                 const fileSizeInBytes = stats.size;
                 const fileSizeInMB = fileSizeInBytes / (1024 * 1024);
 
-                if (fileSizeInMB > 2) {
+                if (fileSizeInMB > maxFileSizeMB) {
                     if (dryRun) {
-                        console.warn(`Dry Run: Would block importing file ${file} as it exceeds 2MB`);
-                        logEntries.push({ filePath: file, status: 'Would block importing as exceeds 2MB' });
+                        console.warn(`Dry Run: Would block importing file ${file} as it exceeds ${maxFileSizeMB}MB`);
+                        logEntries.push({ filePath: file, status: `Would block importing as exceeds ${maxFileSizeMB}MB` });
                     } else {
-                        console.warn(`Blocked importing file ${file} as it exceeds 2MB`);
-                        logEntries.push({ filePath: file, status: 'Blocked importing as exceeds 2MB' });
+                        console.warn(`Blocked importing file ${file} as it exceeds ${maxFileSizeMB}MB`);
+                        logEntries.push({ filePath: file, status: `Blocked importing as exceeds ${maxFileSizeMB}MB` });
                     }
+                    totalFailures++;
                     // Skip processing this file
                     continue;
                 }
@@ -132,10 +159,12 @@ export class FileHandler {
                         filePrefix,
                         targetDirectory,
                         importDirectory,
+                        globalTags,
                     });
                     console.log(`Created note: ${path.join(targetDirectory, filePrefix + path.basename(file, path.extname(file)) + '.md')}`);
                     // Log successful import
                     logEntries.push({ filePath: file, status: 'Created note' });
+                    totalNotesCreated++;
                 } else {
                     console.log(`Dry Run: Would create note for ${file} with metadata:`, metadata);
                     // Log dry run status
@@ -150,24 +179,15 @@ export class FileHandler {
                     // Log failed dry run
                     logEntries.push({ filePath: file, status: 'Dry run failed' });
                 }
+                totalFailures++;
             }
         }
 
         // After processing all files, create the import log note
-        try {
-            const now = new Date();
-            const formattedDate = `${now.getFullYear()}-${(now.getMonth() + 1)
-                .toString()
-                .padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}_${now.getHours()
-                .toString()
-                .padStart(2, '0')}-${now.getMinutes().toString()
-                .padStart(2, '0')}-${now
-                .getSeconds()
-                .toString()
-                .padStart(2, '0')}`;
-            const logFileNameWithoutExt = `${filePrefix}${formattedDate}_import_log`;
-            const logFileName = `${logFileNameWithoutExt}.md`;
+        let logFileNameWithoutExt = `${filePrefix}import_log_${formattedDate}`;
+        const logFileName = `${logFileNameWithoutExt}.md`;
 
+        try {
             // Create markdown table for log entries
             let logContent = `# Import Log - ${formattedDate}\n\n| File Path | Status |\n| --- | --- |\n`;
             for (const entry of logEntries) {
@@ -190,11 +210,25 @@ export class FileHandler {
                 filePrefix, // Use the same prefix
                 targetDirectory,
                 importDirectory,
+                globalTags: '',
             });
 
             console.log(`Import log created: ${path.join(targetDirectory, logFileName)}`);
         } catch (error) {
             console.error(`Error creating import log:`, error);
+        }
+
+        // Show completion Notice
+        let noticeMessage = `Import complete.\nTotal files discovered: ${totalFilesDiscovered}\nTotal notes created: ${totalNotesCreated}\nTotal failures: ${totalFailures}\nImport log created at: ${path.join(targetDirectory, logFileName)}`;
+
+        new Notice(noticeMessage, 10000); // Show notice for 10 seconds
+
+        // Optionally, open the import log note
+        const logNotePath = normalizePath(path.join(targetDirectory, logFileName));
+        const logFile = this.app.vault.getAbstractFileByPath(logNotePath);
+
+        if (logFile instanceof TFile) {
+            this.app.workspace.getLeaf().openFile(logFile);
         }
     }
 }
@@ -256,9 +290,25 @@ export async function extractMetadata(
             metadata.machineName = os.hostname();
 
             if (detectAdditionalMetadata) {
-                // Additional metadata extraction (placeholder for actual implementation)
+                // Additional metadata extraction
                 metadata.ownerUid = stats.uid;
-                // You can add more metadata extraction logic here
+
+                let ownerName = '';
+                try {
+                    // Attempt to get the username associated with the UID
+                    const userInfo = os.userInfo();
+                    if (userInfo.uid === stats.uid) {
+                        ownerName = userInfo.username;
+                    } else {
+                        // Cross-platform method to get username from UID is complex
+                        // Assign 'unknown' if not matching
+                        ownerName = 'unknown';
+                    }
+                } catch (error) {
+                    console.error('Error getting user info:', error);
+                    ownerName = 'unknown';
+                }
+                metadata.owner = ownerName;
             }
         } catch (error) {
             console.error(`Error extracting metadata for file ${filePath}:`, error);
@@ -364,9 +414,6 @@ export async function detectTags(content: string, maxTags: number): Promise<stri
     return tags;
 }
 
-
-
-
 export async function createInternalLinksInContent(content: string, noteTitles: string[]): Promise<string> {
     const titleSet = new Set(noteTitles);
 
@@ -390,11 +437,12 @@ export async function createNote(
         filePrefix: string,
         targetDirectory: string,
         importDirectory: string,
+        globalTags: string,
     }
 ) {
-    const { replicateFolderStructure, filePrefix, targetDirectory, importDirectory } = options;
+    const { replicateFolderStructure, filePrefix, targetDirectory, importDirectory, globalTags } = options;
 
-    // Ensure the target directory is set to 'gravity_well'
+    // Normalize the target directory within the vault
     const vaultTargetDir = normalizePath(targetDirectory);
 
     // Determine the relative path from the import directory
@@ -402,10 +450,10 @@ export async function createNote(
     let notePath: string;
 
     if (replicateFolderStructure) {
-        // Keep the folder structure within 'gravity_well'
+        // Keep the folder structure within the timestamped directory
         notePath = path.join(vaultTargetDir, path.dirname(relativePath));
     } else {
-        // Place all notes directly under 'gravity_well'
+        // Place all notes directly under the timestamped directory
         notePath = vaultTargetDir;
     }
 
@@ -437,6 +485,17 @@ export async function createNote(
         console.log(`File ${normalizedNotePath} already exists in the vault. Skipping.`);
         return;
     }
+
+    // Merge global tags with detected tags
+    let tags = metadata.tags || [];
+    const globalTagsArray = globalTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+    tags = [...tags, ...globalTagsArray];
+
+    // Ensure tags are unique
+    tags = Array.from(new Set(tags));
+
+    // Update metadata.tags
+    metadata.tags = tags;
 
     // Construct front matter
     const frontMatter = '---\n' + Object.entries(metadata)

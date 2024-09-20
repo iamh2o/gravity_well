@@ -7,6 +7,8 @@ Gravity Well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NL
 ## Features (and settings)
 **This is a beta release of the plugin** The following features are are available:
 ### Identifying Eligible Files
+You are advised to create a directory of files you specifically wish to import, to avoid mistakenly importing a lot of junk. Not covered here is exporting data from proprietary systems (such as notes.app), which there are a variety of tools to do this for you. Your input files directory can have subdirectories and contain any number of files.
+
 - From specified import directory ( which must be an absolute path, entered via settings ), `gravity well` will import all eligible files. Eligibility is determined by the following:
   - File extensions are configurable (default `txt,md`). You may also specify `pdf`, but this should be considered more of an experimental feature as the process of converting pdfs to txt is fraught and larger pdfs have behaved oddly once in a while. _entering other file extensions is a bad idea_.
   - Files larger than 2MB will be skipped from import ( this is not yet configurable ), and are logged in import report.
@@ -25,6 +27,7 @@ Gravity Well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NL
   - (available in settings, but not yet implemented): Create links between new notes based on content. The intention here is to use NLP or some other approach to link notes which are related to each other.
   - If a note with the same name in the folder the note is to be created in exists, the creation failes and is logged in the import report.
   - If the note is created successfully, this is logged in the import report.
+  - The created note from `txt` and `md` should have the same txt content as the original. Notes created from `pdf` are have been more heavily processed, and not extensively tested. By design, embedded images in pdfs are not included in new notes.
 
 ### Logging
 - Every import process creates a note in the speficied folder new notes are created in.  This note is named with a datetime in the name.
@@ -40,19 +43,15 @@ Gravity Well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NL
 ## Future Features Which Would Be Nice
 - [ ] Improve pdf extraction. ie: update pdfjs-dist to 4.*, this vexxed me for quite some time, I could not sort out how to get the 4.x version to run so am using  3.x which is the last build with a worker js file I needed.
 - [ ] Accept a `import_manifest.tsv` file in the import top level dir which has a row for each file to import, which indicates on a per-import file basis, tags to be applied to the newly created note.
-- do [ ] Add a settings field for 'tags' to apply to all notes create during a specific import.
 - [ ] Improve the method for proposing and adding tags to notes.
 - [ ] Better & interactive error checking of user inputs for settings, like dirs, etc.
 - [ ] Present a 'completetion' summary to the user (basically a summary of the import log).
-- do? [ ] Present a status indicator to the user during the import process.
 - [ ] Add NLP(or other) classification of the `kinfof` note from content (a single property, like `kind: todo list`, `kind: brainstorming`, `kind: meeting agenda`, `kind: poem`, `kind: letter`, ...). 
 - [ ] Add method to propose and create links among notes deemed to be related (**this might be better developed as an independent plugin?**).
-- do [ ] Make the max size (currently 2MB) of files to import configurable. FYI-  this was set b/c `pfs` around this size or larger were doing weird things when rendered in obsidian.
-- do [ ] block accepting any file extensions other than `pdf,txt,md`.
-- do [ ] Alter the note creation to always happen in the gravity_well top level directory, and to occur in datetime named folders within it instead of allowing user specification. This would make the import process more predictable, easier to manage and less likely to cause catastrophe!
+- [ ] Consider how to handle embedded images in pdfs. Also, investigate how embedded images in pdfs are handled. (obsidian is not a data store, and does limit the size of vaults, so saving alongside notes is not a viable option).
 - do [ ] Add screenshots of the UI elements to this README.
 - do [ ] Review plugin page presented in obsidian.
-- do [ ] Add a graviry well icon to the plugin.
+- do [ ] Add a gravity well icon to the plugin.
 - do [ ] Extract transcript w/Cal and ask its options of it.
 - do [ ] Final review with Cal gating submission to Obsidian Community Plugins.
 

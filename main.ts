@@ -1,4 +1,4 @@
-import { Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Plugin, PluginSettingTab, Setting, Notice } from 'obsidian';
 import { FileHandler } from './handlers/FileHandler';
 
 interface GravityWellSettings {
@@ -14,7 +14,8 @@ interface GravityWellSettings {
     addFileMetadata: boolean;
     detectAdditionalMetadata: boolean;
     importDirectory: string;
-    targetDirectory: string;
+    globalTags: string;
+    maxFileSizeMB: number;
 }
 
 const DEFAULT_SETTINGS: GravityWellSettings = {
@@ -30,7 +31,8 @@ const DEFAULT_SETTINGS: GravityWellSettings = {
     addFileMetadata: true,
     detectAdditionalMetadata: false,
     importDirectory: "/Users/daylily/to_import/",
-    targetDirectory: "gravity_well",
+    globalTags: "",
+    maxFileSizeMB: 2,
 }
 
 export default class GravityWellPlugin extends Plugin {
@@ -73,10 +75,10 @@ export default class GravityWellPlugin extends Plugin {
 
     // Function to trigger file processing
     async processFiles() {
-        const { importDirectory, fileExtensions, maxRecursionDepth, dryRun } = this.settings;
+        const { importDirectory } = this.settings;
 
         if (!importDirectory) {
-            console.log('No import directory specified.');
+            new Notice('No import directory specified.');
             return;
         }
 
@@ -101,10 +103,27 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h2', { text: 'Gravity Well Plugin Settings' });
 
+
+        // Mention that files will be created in datetime stamped subdirs of the gravity_well folder
+        containerEl.createEl('p', { text: 'Imported files will be created in datetime-stamped subdirectories of the gravity_well folder in your vault.' });
+
         // Group 1: File Import Options
+
+
+        new Setting(containerEl)
+            .setName('Import Directory')
+            .setDesc('Set the directory to import files from.')
+            .addText(text => text
+                .setPlaceholder('Full path to import, e.g., /Users/me/to_import/ , with trailing slash')
+                .setValue(this.plugin.settings.importDirectory || '')
+                .onChange(async (value) => {
+                    this.plugin.settings.importDirectory = value;
+                    await this.plugin.saveSettings();
+                }));
+
         new Setting(containerEl)
             .setName('File Extensions')
-            .setDesc('Comma-separated list of file extensions to import (e.g., txt,md,pdf).')
+            .setDesc('Comma-separated list of file extensions to import (e.g., txt,md,pdf). Allowed extensions: txt, md, pdf.')
             .addText(text => text
                 .setPlaceholder('txt, md')
                 .setValue(this.plugin.settings.fileExtensions)
@@ -140,32 +159,11 @@ class GravityWellSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        new Setting(containerEl)
-            .setName('Import Directory')
-            .setDesc('Set the directory to import files from.')
-            .addText(text => text
-                .setPlaceholder('full path to import, e.g., /Users/me/to_import/ , with trailing slash')
-                .setValue(this.plugin.settings.importDirectory || '')
-                .onChange(async (value) => {
-                    this.plugin.settings.importDirectory = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
-            .setName('Vault Folder to Import Into')
-            .setDesc('Set the folder to create newly imported notes and subfolders. This should exist in the top-level vault folder, if not it will be created.')
-            .addText(text => text
-                .setPlaceholder('Enter the folder name')
-                .setValue(this.plugin.settings.targetDirectory || '')
-                .onChange(async (value) => {
-                    this.plugin.settings.targetDirectory = value;
-                    await this.plugin.saveSettings();
-                }));
 
         // Group 2: File Naming
         new Setting(containerEl)
             .setName('File Prefix')
-            .setDesc('Prefix to add to all newly created files. Null adds no prefix. Add separator if desired, e.g., "_".')
+            .setDesc('Add this prefix to all newly create notes. Null adds no prefix. Add separator if desired, e.g., "_".')
             .addText(text => text
                 .setPlaceholder('Prefix')
                 .setValue(this.plugin.settings.filePrefix)
@@ -176,18 +174,8 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         // Group 3: Processing and Metadata
         new Setting(containerEl)
-            .setName('Dry Run')
-            .setDesc('Check for conflicts without making changes.')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.dryRun)
-                .onChange(async (value) => {
-                    this.plugin.settings.dryRun = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
             .setName('Detect External URLs')
-            .setDesc('Detect URLs and convert them into links.')
+            .setDesc('Detect URLs and convert them into md links.')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.detectExternalUrls)
                 .onChange(async (value) => {
@@ -197,7 +185,7 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Tag Notes')
-            .setDesc('Automatically add tags based on note content.')
+            .setDesc('Use NLP to create tags for each note based on the note content.')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.tagNotes)
                 .onChange(async (value) => {
@@ -207,7 +195,7 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Max Tags')
-            .setDesc('Maximum number of tags per note.')
+            .setDesc('Maximum number of tags to apply per note.')
             .addSlider(slider => {
                 const sliderLabel = containerEl.createEl('span', { text: `${this.plugin.settings.maxTags}`, cls: 'slider-value' });
 
@@ -224,7 +212,7 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Create Internal Links')
-            .setDesc('Automatically link between notes.')
+            .setDesc('Identify links between notes, and add links (NOT IMPLEMENTED).')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.createInternalLinks)
                 .onChange(async (value) => {
@@ -234,7 +222,7 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Add File Metadata')
-            .setDesc('Add file metadata like creation date, size, etc.')
+            .setDesc('Add original file metadata like creation date, size, owner, etc. as note properties.')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.addFileMetadata)
                 .onChange(async (value) => {
@@ -244,11 +232,60 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Detect Additional Metadata')
-            .setDesc('Attempt to detect additional metadata from files.')
+            .setDesc('Detect additional metadata from pdf files. (NOT IMPLEMENTED)')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.detectAdditionalMetadata)
                 .onChange(async (value) => {
                     this.plugin.settings.detectAdditionalMetadata = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        // New Setting: Max File Size
+        new Setting(containerEl)
+        .setName('Max File Size (MB)')
+        .setDesc('Maximum file size to import in MB.')
+        .addText(text => text
+            .setPlaceholder('2')
+            .setValue(this.plugin.settings.maxFileSizeMB.toString())
+            .onChange(async (value) => {
+                // Allow an empty value temporarily (null/blank)
+                if (value === '') {
+                    text.setValue('');
+                    return;
+                }
+                
+                // Parse the value and check if it's an integer > 0
+                const parsedValue = parseInt(value, 10);
+                if (!isNaN(parsedValue) && parsedValue > 0) {
+                    this.plugin.settings.maxFileSizeMB = parsedValue;
+                    await this.plugin.saveSettings();
+                } else {
+                    new Notice('Please enter a valid integer greater than 0 for Max File Size.');
+                    text.setValue(this.plugin.settings.maxFileSizeMB.toString()); // Reset to previous valid value
+                }
+            }));
+
+
+        // New Setting: Global Tags
+        new Setting(containerEl)
+            .setName('Global Tags')
+            .setDesc('Comma-separated tags to tag all newly created notes with. These must be valid tag strings (so no spaces, special chars, leading digits).')
+            .addText(text => text
+                .setPlaceholder('tag1, tag2')
+                .setValue(this.plugin.settings.globalTags)
+                .onChange(async (value) => {
+                    this.plugin.settings.globalTags = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        // Move Dry Run toggle just above the Import Files button
+        new Setting(containerEl)
+            .setName('Dry Run')
+            .setDesc('Run import process, but create no new notes. Only create an import report of what would happen if not a dry run. Disable to run import.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.dryRun)
+                .onChange(async (value) => {
+                    this.plugin.settings.dryRun = value;
                     await this.plugin.saveSettings();
                 }));
 
