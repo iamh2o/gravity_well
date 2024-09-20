@@ -7,23 +7,25 @@ Gravity Well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NL
 ## Features (and settings)
 **This is a beta release of the plugin** The following features are are available:
 ### Identifying Eligible Files
-You are advised to create a directory of files you specifically wish to import, to avoid mistakenly importing a lot of junk. Not covered here is exporting data from proprietary systems (such as notes.app), which there are a variety of tools to do this for you. Your input files directory can have subdirectories and contain any number of files.
+You are advised to create a directory of files you specifically wish to import, to avoid mistakenly importing a lot of junk. Not covered here is exporting data from proprietary systems (such as notes.app), which there are a variety of tools around for already. Your input files directory can have subdirectories and contain any number of files.
 
-- From specified import directory ( which must be an absolute path, entered via settings ), `gravity well` will import all eligible files. Eligibility is determined by the following:
+- The default import directory is `$HOME/gravity_well_import` (this directory is configurable. note: only absolute paths will work. Further, on a Mac, if you specify protected directories, these might need to be approved for access via privacy settings.
+
+- From  the specified import directory, `gravity well` will identify eligible files to import. Eligibility is determined by the following:
   - File extensions are configurable (default `txt,md`). You may also specify `pdf`, but this should be considered more of an experimental feature as the process of converting pdfs to txt is fraught and larger pdfs have behaved oddly once in a while. _entering other file extensions is a bad idea_.
-  - Files larger than 2MB will be skipped from import ( this is not yet configurable ), and are logged in import report.
+  - Files larger than 2MB (configurable, default is 2) will be skipped from import, files exceeding this size are logged in import report.
   - Recursion depth is configurable (default `0`, no recursion). If > 0, directories up to the specified depth are scanned for eligible files to import.  
   - Replicate folder structure is configurable (default `true`), if true the import directory structure is replicated in the vault directory specified in the settings to create imported notes.
   - Prefix for File Names is configurable (default `''`), if not empty, the prefix is added to the beginning of the note name.
-- The folder to create imported notes within the vault is specified in the settings, and is assumed to begin with the root of the vault. This directory, if it does not exist, will be created.
+
 
 ### Importing Eligible Files  
-- Eligible files are imported as new notes. `txt` and `md` files are converted to obsidian `md` files (which effectively means that the `yaml` header is added, little other changes should happen. `pfd` files are converted to txt, and then transformed to obsidian markdown (this conversion is not awesome at the moment, and often is a txt dump of the pdf).with the file content as the note content.
-  - An attempt is made to style external urls appropriately in the note `md` file. This is configurable (default `true`).
-  - Other formatting changes are not attempted at the moment.
-  - File metadata is added to the note as properties. This includes the file name, creation date, and modification date, system name, file owner, size of file, import path and file name, etc.
-  - New notes are tagged based on the content of the imported file. This is a simple NLP process that tags the note based on the content of the note. _todo: improve this process, and include asserting for each note a `kind` (so: todo list, brainstorming, meeting agenda, poem, letter, ...)_.
-    - The number of tags to apply to a note is configurable (default `5`).
+- Eligible files are imported as new notes. `txt` and `md` files are converted to obsidian `md` files (which effectively means that the `yaml` header is added, little other changes should happen). `pfd` files are converted to txt, and then transformed to obsidian markdown (this conversion is not awesome at the moment, and often is a txt dump of the pdf) with the file content as the note content.
+- An attempt is made to style identified external urls appropriately in the note `md` file. This is configurable (default `true`).
+- Other formatting changes are not attempted at the moment.
+- File metadata is added to the note as properties. This includes the file name, creation date, and modification date, system name, file owner, size of file, import path and file name, etc.
+- New notes are tagged based on the content of the imported file. This is a simple NLP process that tags the note based on the content of the note. _todo: improve this process, and include asserting for each note a `kind` (so: todo list, brainstorming, meeting agenda, poem, letter, ...)_.
+  - The max number of tags to apply to a note is configurable (default `5`).
   - (available in settings, but not yet implemented): Create links between new notes based on content. The intention here is to use NLP or some other approach to link notes which are related to each other.
   - If a note with the same name in the folder the note is to be created in exists, the creation failes and is logged in the import report.
   - If the note is created successfully, this is logged in the import report.
@@ -40,12 +42,21 @@ You are advised to create a directory of files you specifically wish to import, 
 - Detect and format URLs
 - Add file metadata to notes
 
+### Importing
+- Click the import button and a dialog will appear indicating the number of files detected, and remain open until the import completes or fails.
+- Upon completion, a new dialog appears presenting the number of files found and # of notes created and failed to create.
+
+### Canceling Import
+- A `cancel import` button is available during the import process, both on the settings page and via the progress dialog window. Clicking this will cancel the in progress import.
+
+### Debugging
+- The plugin logs to the console, enable the developer tools and view the console for messages.
+
+
 ## Future Features Which Would Be Nice
 - [ ] Improve pdf extraction. ie: update pdfjs-dist to 4.*, this vexxed me for quite some time, I could not sort out how to get the 4.x version to run so am using  3.x which is the last build with a worker js file I needed.
 - [ ] Accept a `import_manifest.tsv` file in the import top level dir which has a row for each file to import, which indicates on a per-import file basis, tags to be applied to the newly created note.
 - [ ] Improve the method for proposing and adding tags to notes.
-- [ ] Better & interactive error checking of user inputs for settings, like dirs, etc.
-- [ ] Present a 'completetion' summary to the user (basically a summary of the import log).
 - [ ] Add NLP(or other) classification of the `kinfof` note from content (a single property, like `kind: todo list`, `kind: brainstorming`, `kind: meeting agenda`, `kind: poem`, `kind: letter`, ...). 
 - [ ] Add method to propose and create links among notes deemed to be related (**this might be better developed as an independent plugin?**).
 - [ ] Extract other metadata from pdfs and store as properties in the note.

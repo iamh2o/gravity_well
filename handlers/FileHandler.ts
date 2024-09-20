@@ -20,7 +20,7 @@ const as = nlp.as;
 
 // Define custom stop words
 const customStopWords: Set<string> = new Set([
-
+    // ... (your list of stop words)
     'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any',
     'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below',
     'between', 'both', 'but', 'by', "can't", 'cannot', 'could', "couldn't", 'did',
@@ -231,7 +231,7 @@ export class FileHandler {
                 filePrefix, // Use the same prefix
                 targetDirectory,
                 importDirectory,
-                globalTags: '',
+                globalTags: 'gravitywelllog',
             });
 
             console.log(`Import log created: ${path.join(targetDirectory, logFileName)}`);
@@ -393,41 +393,37 @@ export async function detectAndConvertUrls(content: string): Promise<string> {
         return `[${url}](${href})`;
     });
 }
-
 export async function detectTags(content: string, maxTags: number): Promise<string[]> {
     const doc = nlp.readDoc(content.toLowerCase());
 
-    // Extract tokens and their part-of-speech
     const tokens = doc.tokens().out(its.value) as string[];
     const posTags = doc.tokens().out(its.pos) as string[];
 
-    // Extract named entities as objects
-    const namedEntities = doc.entities().out(as.entities) as any[];
+    const namedEntities = tokens.filter((token, index) => posTags[index] === 'PROPN');
 
-
-    // Regular expression to match dates and times
     const dateRegex = /\b(\d{1,2}\/\d{1,2}\/\d{2,4}|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\b\s\d{1,2},\s\d{4}|\d{1,2}:\d{2}\s?(?:am|pm))\b/i;
 
-    // Initialize word counts for filtering based on relevance
     const wordCounts: { [word: string]: number } = {};
 
-    // Process tokens to extract nouns
+    // Process tokens to extract nouns (avoiding overly aggressive stemming)
     tokens.forEach((token: string, index: number) => {
         const pos = posTags[index];
 
+        // Only process nouns, and avoid words in the custom stop word list
         if (pos === 'NOUN' && !customStopWords.has(token)) {
-            const stemmedWord = stemmer.stem(token);
-            wordCounts[stemmedWord] = (wordCounts[stemmedWord] || 0) + 1;
+            const cleanToken = token.replace(/[^\w\s]/gi, '').trim();  // Ensure no extra characters remain
+            if (cleanToken.length > 1) { // Ignore very short tokens
+                wordCounts[cleanToken] = (wordCounts[cleanToken] || 0) + 1;
+            }
         }
     });
 
     // Add named entities to word counts, filtering out dates and times
     namedEntities.forEach(entity => {
-        if (entity && entity.normal && !dateRegex.test(entity.normal)) {
-            const normalizedEntity = entity.normal.toLowerCase();
-            if (!customStopWords.has(normalizedEntity)) {
-                const stemmedEntity = stemmer.stem(normalizedEntity);
-                wordCounts[stemmedEntity] = (wordCounts[stemmedEntity] || 0) + 1;
+        if (entity && !dateRegex.test(entity)) {
+            const cleanEntity = entity.toLowerCase().replace(/[^\w\s]/gi, '').trim(); // Clean up named entity
+            if (cleanEntity.length > 1) { // Ignore short entities
+                wordCounts[cleanEntity] = (wordCounts[cleanEntity] || 0) + 1;
             }
         }
     });
@@ -440,6 +436,7 @@ export async function detectTags(content: string, maxTags: number): Promise<stri
 
     return tags;
 }
+
 
 export async function createInternalLinksInContent(content: string, noteTitles: string[]): Promise<string> {
     // Escape special regex characters in titles
@@ -519,12 +516,20 @@ export async function createNote(
     // Ensure tags are unique
     tags = Array.from(new Set(tags));
 
-    // Update metadata.tags
-    metadata.tags = tags;
+    // Format tags correctly (with # and double quotes)
+    const formattedTags = tags.map((tag: string) => `"#${tag}"`);
+
+    // Update metadata.tags with the correctly formatted tags
+    metadata.tags = formattedTags;
 
     // Construct front matter
     const frontMatter = '---\n' + Object.entries(metadata)
-        .map(([key, value]) => `${key}: ${value}`)
+        .map(([key, value]) => {
+            if (key === 'tags') {
+                return `${key}:\n  - ${formattedTags.join('\n  - ')}`;
+            }
+            return `${key}: ${value}`;
+        })
         .join('\n') + '\n---\n\n';
 
     // Final content with front matter
