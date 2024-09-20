@@ -1,6 +1,6 @@
 # Gravity Well File Importer: Add .txt, .md, and .pdf as obsidian notes with automatic metadata capture & contextual tagging
 _[In Collaboration with Cal, chatGPT](#in-collaboration-with-cal)_
-**v0.1.14** _is a beta release_
+**v0.1.15** _is a beta release_
 
 Gravity well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NLP taging each new note, and preserving other metadata as properties. 
 
