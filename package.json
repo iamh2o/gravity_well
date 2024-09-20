@@ -1,7 +1,7 @@
 {
     "id": "gravity_well",
 	"name": "gravity_well",
-	"version": "0.1.8",
+	"version": "0.1.9",
 	"description": "A tool to import text, markdown, and PDF files into Obsidian.",
 	"main": "main.js",
 	"scripts": {
