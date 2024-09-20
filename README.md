@@ -43,8 +43,10 @@ To prevent accidental import of unwanted files, it's recommended to create a ded
 
 ## Disclaimers
 
-- The plugin accesses files outside of the Obsidian vault structure, which is generally discouraged for Obsidian plugins. However, this is done only at the user’s request, and the process is non-destructive.
-- Compatibility with mobile devices is not guaranteed.
+- This app is tested to run on Mac/Linux ( at the moment! ).
+  - This plugin is not tested on mobile devices (which is not expected to work presently), or on windows machines (which probably will work).
+
+- The plugin accesses files outside of the Obsidian vault structure, which is generally discouraged for Obsidian plugins. **However**, this is done only at the user’s request, and the process is non-destructive. Files to be imported are read from the speficied directory, nothing else & w/out user direction, the plugin can not look outside the vault.
 
 ---
 
