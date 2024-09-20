@@ -104,9 +104,9 @@ class GravityWellSettingTab extends PluginSettingTab {
         // Group 1: File Import Options
         new Setting(containerEl)
             .setName('File Extensions')
-            .setDesc('Comma-separated list of file extensions to import (e.g., txt, md, pdf).')
+            .setDesc('Comma-separated list of file extensions to import (e.g., txt,md,pdf).')
             .addText(text => text
-                .setPlaceholder('txt, md, pdf')
+                .setPlaceholder('txt, md')
                 .setValue(this.plugin.settings.fileExtensions)
                 .onChange(async (value) => {
                     this.plugin.settings.fileExtensions = value;
