@@ -8,20 +8,19 @@ import * as pdfjsLib from 'pdfjs-dist';
 import winkNLP from 'wink-nlp';
 import model from 'wink-eng-lite-web-model';
 import natural from 'natural';
+import { ProgressModal } from '../ui/ProgressModal';
 
-console.log("Model Loaded:", model);
 // Initialize wink-nlp
 const nlp = winkNLP(model);
 const its = nlp.its;
+const as = nlp.as;
 
-console.log("Model Loaded:", model);
-console.log("Wink NLP Initialized:", nlp);
-
-// Set the workerSrc to the provided URL
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+// Set the workerSrc for PDF.js
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 // Define custom stop words
 const customStopWords: Set<string> = new Set([
+
     'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any',
     'are', "aren't", 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below',
     'between', 'both', 'but', 'by', "can't", 'cannot', 'could', "couldn't", 'did',
@@ -49,12 +48,17 @@ const stemmer = natural.PorterStemmer;
 
 export class FileHandler {
     app: App;
+    isCancelled: boolean = false;
 
     constructor(app: App) {
         this.app = app;
     }
 
-    async processFiles(settings: any) {
+    cancelImport() {
+        this.isCancelled = true;
+    }
+
+    async processFiles(settings: any, progressModal: ProgressModal) {
         const {
             importDirectory,
             fileExtensions,
@@ -108,6 +112,10 @@ export class FileHandler {
         let totalNotesCreated = 0;
         let totalFailures = 0;
 
+        // Update total files in progress modal
+        progressModal.totalFiles = totalFilesDiscovered;
+        progressModal.updateProgressInfo();
+
         // Collect note titles for internal linking
         const noteTitles = files.map(file => path.basename(file, path.extname(file)));
 
@@ -115,6 +123,11 @@ export class FileHandler {
         const logEntries: { filePath: string; status: string }[] = [];
 
         for (const file of files) {
+            if (this.isCancelled || progressModal.isCancelled) {
+                console.log('Import cancelled by user.');
+                break;
+            }
+
             try {
                 // Check file size
                 const stats = await fs.promises.stat(file);
@@ -130,7 +143,8 @@ export class FileHandler {
                         logEntries.push({ filePath: file, status: `Blocked importing as exceeds ${maxFileSizeMB}MB` });
                     }
                     totalFailures++;
-                    // Skip processing this file
+                    progressModal.filesFailed = totalFailures;
+                    progressModal.updateProgressInfo();
                     continue;
                 }
 
@@ -181,6 +195,13 @@ export class FileHandler {
                 }
                 totalFailures++;
             }
+
+            progressModal.filesProcessed = totalNotesCreated;
+            progressModal.filesFailed = totalFailures;
+            progressModal.updateProgressInfo();
+
+            // Wait for a short duration to allow UI update
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         // After processing all files, create the import log note
@@ -230,6 +251,10 @@ export class FileHandler {
         if (logFile instanceof TFile) {
             this.app.workspace.getLeaf().openFile(logFile);
         }
+
+        // Reset the cancellation flag
+        this.isCancelled = false;
+        progressModal.isCancelled = false;
     }
 }
 
@@ -252,6 +277,10 @@ export async function traverseDirectory(
     }
 
     for (const dirent of dirents) {
+        if ((dirent.name === '.' || dirent.name === '..') || dirent.name.startsWith('.')) {
+            continue; // Skip hidden files and directories
+        }
+
         const res = path.resolve(directory, dirent.name);
         if (dirent.isDirectory()) {
             const subFiles = await traverseDirectory(res, extensions, maxDepth, currentDepth + 1);
@@ -328,7 +357,7 @@ export async function convertToMarkdown(filePath: string): Promise<string> {
             // Read the PDF file as a Uint8Array
             const data = new Uint8Array(await fs.promises.readFile(resolvedFilePath));
 
-            // Load the PDF using PDF.js with workers disabled
+            // Load the PDF using PDF.js
             const pdfDocument = await pdfjsLib.getDocument({ data }).promise;
 
             let content = '';
@@ -369,11 +398,12 @@ export async function detectTags(content: string, maxTags: number): Promise<stri
     const doc = nlp.readDoc(content.toLowerCase());
 
     // Extract tokens and their part-of-speech
-    const tokens = doc.tokens().out(its.value);
-    const posTags = doc.tokens().out(its.pos);
+    const tokens = doc.tokens().out(its.value) as string[];
+    const posTags = doc.tokens().out(its.pos) as string[];
 
     // Extract named entities as objects
-    const namedEntities = doc.entities().out('array');  // Use 'array' to get full entity objects
+    const namedEntities = doc.entities().out(as.entities) as any[];
+
 
     // Regular expression to match dates and times
     const dateRegex = /\b(\d{1,2}\/\d{1,2}\/\d{2,4}|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\b\s\d{1,2},\s\d{4}|\d{1,2}:\d{2}\s?(?:am|pm))\b/i;
@@ -382,7 +412,7 @@ export async function detectTags(content: string, maxTags: number): Promise<stri
     const wordCounts: { [word: string]: number } = {};
 
     // Process tokens to extract nouns
-    tokens.forEach((token, index) => {
+    tokens.forEach((token: string, index: number) => {
         const pos = posTags[index];
 
         if (pos === 'NOUN' && !customStopWords.has(token)) {
@@ -393,15 +423,12 @@ export async function detectTags(content: string, maxTags: number): Promise<stri
 
     // Add named entities to word counts, filtering out dates and times
     namedEntities.forEach(entity => {
-        // Check if the entity is an object and has a 'normal' property and is not a date or time
-        if (entity && typeof entity === 'object' && entity.normal && !dateRegex.test(entity.normal)) {
-            const normalizedEntity = entity.normal.toLowerCase();  // Access 'normal' property
+        if (entity && entity.normal && !dateRegex.test(entity.normal)) {
+            const normalizedEntity = entity.normal.toLowerCase();
             if (!customStopWords.has(normalizedEntity)) {
                 const stemmedEntity = stemmer.stem(normalizedEntity);
                 wordCounts[stemmedEntity] = (wordCounts[stemmedEntity] || 0) + 1;
             }
-        } else {
-            console.warn(`Entity without 'normal' property or date/time encountered:`, entity);
         }
     });
 
@@ -415,8 +442,6 @@ export async function detectTags(content: string, maxTags: number): Promise<stri
 }
 
 export async function createInternalLinksInContent(content: string, noteTitles: string[]): Promise<string> {
-    const titleSet = new Set(noteTitles);
-
     // Escape special regex characters in titles
     const escapedTitles = noteTitles.map(title => title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 

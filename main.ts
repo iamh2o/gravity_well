@@ -1,5 +1,9 @@
-import { Plugin, PluginSettingTab, Setting, Notice } from 'obsidian';
+import { Plugin, PluginSettingTab, Setting, Notice, App } from 'obsidian';
 import { FileHandler } from './handlers/FileHandler';
+import { ProgressModal } from './ui/ProgressModal';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 
 interface GravityWellSettings {
     fileExtensions: string;
@@ -27,10 +31,10 @@ const DEFAULT_SETTINGS: GravityWellSettings = {
     detectExternalUrls: true,
     tagNotes: true,
     maxTags: 5,
-    createInternalLinks: true,
+    createInternalLinks: false,
     addFileMetadata: true,
     detectAdditionalMetadata: false,
-    importDirectory: "/Users/daylily/to_import/",
+    importDirectory: "", // We'll set the default in loadSettings
     globalTags: "",
     maxFileSizeMB: 2,
 }
@@ -38,6 +42,8 @@ const DEFAULT_SETTINGS: GravityWellSettings = {
 export default class GravityWellPlugin extends Plugin {
     settings: GravityWellSettings = DEFAULT_SETTINGS;
     fileHandler!: FileHandler;
+    isImportInProgress: boolean = false;
+    progressModal: ProgressModal | null = null;
 
     async onload() {
         console.log('Loading Gravity Well Plugin');
@@ -63,10 +69,19 @@ export default class GravityWellPlugin extends Plugin {
 
     onunload() {
         console.log('Unloading Gravity Well Plugin');
+        if (this.isImportInProgress) {
+            this.fileHandler.cancelImport();
+        }
     }
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+
+        // Set the default import directory to $HOME/gravity_well_import if not set
+        if (!this.settings.importDirectory) {
+            this.settings.importDirectory = path.join(os.homedir(), 'gravity_well_import');
+            await this.saveSettings();
+        }
     }
 
     async saveSettings() {
@@ -77,13 +92,61 @@ export default class GravityWellPlugin extends Plugin {
     async processFiles() {
         const { importDirectory } = this.settings;
 
-        if (!importDirectory) {
-            new Notice('No import directory specified.');
+        // Check if import directory exists
+        if (!importDirectory || !fs.existsSync(importDirectory)) {
+            new Notice(`Import directory does not exist: ${importDirectory}`);
             return;
         }
 
-        // Call the FileHandler method to process files
-        await this.fileHandler.processFiles(this.settings);
+        if (!this.settings.fileExtensions) {
+            new Notice('No file extensions specified.');
+            return;
+        }
+
+        if (this.isImportInProgress) {
+            new Notice('An import is already in progress.');
+            return;
+        }
+
+        // Initialize progress modal
+        this.progressModal = new ProgressModal(this.app);
+        this.progressModal.open();
+
+        // Set import in progress
+        this.isImportInProgress = true;
+
+        // Start processing files
+        await this.fileHandler.processFiles(this.settings, this.progressModal)
+            .then(() => {
+                this.isImportInProgress = false;
+                if (this.progressModal) {
+                    this.progressModal.close();
+                    this.progressModal = null;
+                }
+            })
+            .catch((error) => {
+                console.error('Error during import:', error);
+                this.isImportInProgress = false;
+                if (this.progressModal) {
+                    this.progressModal.close();
+                    this.progressModal = null;
+                }
+            });
+    }
+
+    // Function to cancel the import
+    cancelImport() {
+        if (this.isImportInProgress) {
+            this.fileHandler.cancelImport();
+            this.isImportInProgress = false;
+            if (this.progressModal) {
+                this.progressModal.close();
+                this.progressModal = null;
+            }
+            new Notice('Import has been cancelled.');
+        } else {
+            new Notice('No import is in progress.');
+        }
     }
 }
 
@@ -91,7 +154,7 @@ export default class GravityWellPlugin extends Plugin {
 class GravityWellSettingTab extends PluginSettingTab {
     plugin: GravityWellPlugin;
 
-    constructor(app: any, plugin: GravityWellPlugin) {
+    constructor(app: App, plugin: GravityWellPlugin) {
         super(app, plugin);
         this.plugin = plugin;
     }
@@ -103,18 +166,16 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h2', { text: 'Gravity Well Plugin Settings' });
 
-
         // Mention that files will be created in datetime stamped subdirs of the gravity_well folder
         containerEl.createEl('p', { text: 'Imported files will be created in datetime-stamped subdirectories of the gravity_well folder in your vault.' });
 
         // Group 1: File Import Options
 
-
         new Setting(containerEl)
             .setName('Import Directory')
             .setDesc('Set the directory to import files from.')
             .addText(text => text
-                .setPlaceholder('Full path to import, e.g., /Users/me/to_import/ , with trailing slash')
+                .setPlaceholder('Full path to import, e.g., /Users/me/gravity_well_import/ , with trailing slash')
                 .setValue(this.plugin.settings.importDirectory || '')
                 .onChange(async (value) => {
                     this.plugin.settings.importDirectory = value;
@@ -159,11 +220,10 @@ class GravityWellSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-
         // Group 2: File Naming
         new Setting(containerEl)
             .setName('File Prefix')
-            .setDesc('Add this prefix to all newly create notes. Null adds no prefix. Add separator if desired, e.g., "_".')
+            .setDesc('Add this prefix to all newly created notes. Null adds no prefix. Add separator if desired, e.g., "_".')
             .addText(text => text
                 .setPlaceholder('Prefix')
                 .setValue(this.plugin.settings.filePrefix)
@@ -212,7 +272,7 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Create Internal Links')
-            .setDesc('Identify links between notes, and add links (NOT IMPLEMENTED).')
+            .setDesc('Identify links between notes, and add links.')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.createInternalLinks)
                 .onChange(async (value) => {
@@ -232,7 +292,7 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Detect Additional Metadata')
-            .setDesc('Detect additional metadata from pdf files. (NOT IMPLEMENTED)')
+            .setDesc('Detect additional metadata from pdf files.')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.detectAdditionalMetadata)
                 .onChange(async (value) => {
@@ -242,40 +302,48 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         // New Setting: Max File Size
         new Setting(containerEl)
-        .setName('Max File Size (MB)')
-        .setDesc('Maximum file size to import in MB.')
-        .addText(text => text
-            .setPlaceholder('2')
-            .setValue(this.plugin.settings.maxFileSizeMB.toString())
-            .onChange(async (value) => {
-                // Allow an empty value temporarily (null/blank)
-                if (value === '') {
-                    text.setValue('');
-                    return;
-                }
-                
-                // Parse the value and check if it's an integer > 0
-                const parsedValue = parseInt(value, 10);
-                if (!isNaN(parsedValue) && parsedValue > 0) {
-                    this.plugin.settings.maxFileSizeMB = parsedValue;
-                    await this.plugin.saveSettings();
-                } else {
-                    new Notice('Please enter a valid integer greater than 0 for Max File Size.');
-                    text.setValue(this.plugin.settings.maxFileSizeMB.toString()); // Reset to previous valid value
-                }
-            }));
+            .setName('Max File Size (MB)')
+            .setDesc('Maximum file size to import in MB. Enter an integer greater than 0 only, no other characters.')
+            .addText(text => text
+                .setPlaceholder('2')
+                .setValue(this.plugin.settings.maxFileSizeMB.toString())
+                .onChange(async (value) => {
+                    // Allow an empty value temporarily (null/blank)
+                    if (value === '') {
+                        // Do not update the setting yet
+                        return;
+                    }
 
+                    // Parse the value and check if it's an integer > 0
+                    const parsedValue = parseInt(value, 10);
+                    if (!isNaN(parsedValue) && parsedValue > 0 && parsedValue.toString() === value.trim()) {
+                        this.plugin.settings.maxFileSizeMB = parsedValue;
+                        await this.plugin.saveSettings();
+                    } else {
+                        new Notice('Please enter a valid integer greater than 0 for Max File Size.');
+                        text.setValue(this.plugin.settings.maxFileSizeMB.toString()); // Reset to previous valid value
+                    }
+                }));
 
         // New Setting: Global Tags
         new Setting(containerEl)
             .setName('Global Tags')
-            .setDesc('Comma-separated tags to tag all newly created notes with. These must be valid tag strings (so no spaces, special chars, leading digits).')
+            .setDesc('Comma-separated tags to tag all newly created notes with. These must be valid tag strings (no spaces, special chars, leading digits).')
             .addText(text => text
                 .setPlaceholder('tag1, tag2')
                 .setValue(this.plugin.settings.globalTags)
                 .onChange(async (value) => {
-                    this.plugin.settings.globalTags = value;
-                    await this.plugin.saveSettings();
+                    // Validate tags
+                    const tagsArray = value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                    const invalidTags = tagsArray.filter(tag => !/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(tag));
+                    if (invalidTags.length > 0) {
+                        new Notice('Invalid tags: ' + invalidTags.join(', ') + '. Tags must not have spaces, special characters, or start with digits.');
+                        // Reset to previous valid value
+                        text.setValue(this.plugin.settings.globalTags);
+                    } else {
+                        this.plugin.settings.globalTags = value;
+                        await this.plugin.saveSettings();
+                    }
                 }));
 
         // Move Dry Run toggle just above the Import Files button
@@ -297,8 +365,29 @@ class GravityWellSettingTab extends PluginSettingTab {
                 button.setButtonText('Import Files')
                     .setCta()
                     .onClick(async () => {
-                        await this.plugin.fileHandler.processFiles(this.plugin.settings);
+                        await this.plugin.processFiles();
                     });
             });
+
+        // Cancel Import Button
+        const cancelImportSetting = new Setting(containerEl)
+            .setName('Cancel Import')
+            .setDesc('Click to cancel the ongoing import process.')
+            .addButton(button => {
+                button.setButtonText('Cancel Import')
+                    .setDisabled(!this.plugin.isImportInProgress)
+                    .onClick(() => {
+                        this.plugin.cancelImport();
+                        // Refresh settings to update button state
+                        this.display();
+                    });
+            });
+
+        // Update the cancel button state based on import progress
+        if (this.plugin.isImportInProgress) {
+            cancelImportSetting.controlEl.querySelector('button')?.removeAttribute('disabled');
+        } else {
+            cancelImportSetting.controlEl.querySelector('button')?.setAttribute('disabled', 'true');
+        }
     }
 }

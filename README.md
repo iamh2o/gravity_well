@@ -48,6 +48,7 @@ You are advised to create a directory of files you specifically wish to import, 
 - [ ] Present a 'completetion' summary to the user (basically a summary of the import log).
 - [ ] Add NLP(or other) classification of the `kinfof` note from content (a single property, like `kind: todo list`, `kind: brainstorming`, `kind: meeting agenda`, `kind: poem`, `kind: letter`, ...). 
 - [ ] Add method to propose and create links among notes deemed to be related (**this might be better developed as an independent plugin?**).
+- [ ] Extract other metadata from pdfs and store as properties in the note.
 - [ ] Consider how to handle embedded images in pdfs. Also, investigate how embedded images in pdfs are handled. (obsidian is not a data store, and does limit the size of vaults, so saving alongside notes is not a viable option).
 - do [ ] Add screenshots of the UI elements to this README.
 - do [ ] Review plugin page presented in obsidian.
