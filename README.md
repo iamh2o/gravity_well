@@ -1,87 +1,110 @@
-# Gravity Well ( txt, md, pdf ) Importer
+# Gravity Well File Importer: Add .txt, .md, and .pdf as obsidian notes with automatic metadata capture & contextual tagging
 _[In Collaboration with Cal, chatGPT](#in-collaboration-with-cal)_
+**v0.1.13** _is a beta release_
 
-Gravity Well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NLP taging new notes, and preserving other metadata. The plugin was inspired by a desire to import notes.app notes into Obsidian, which turned out to be not entirely straight forward. This plugin simply executes import of files (which can be from any source).
+Gravity well imports  `.txt`, `.md`, and `.pdf` into your vault as new notes, NLP taging each new note, and preserving other metadata as properties. 
 
+---
 
 ## Features (and settings)
-**This is a beta release of the plugin** The following features are are available:
-### Identifying Eligible Files
-You are advised to create a directory of files you specifically wish to import, to avoid mistakenly importing a lot of junk. Not covered here is exporting data from proprietary systems (such as notes.app), which there are a variety of tools around for already. Your input files directory can have subdirectories and contain any number of files.
 
-- The default import directory is `$HOME/gravity_well_import` (this directory is configurable. note: only absolute paths will work. Further, on a Mac, if you specify protected directories, these might need to be approved for access via privacy settings.
+### Importing Eligible Files
+To prevent accidental import of unwanted files, it's recommended to create a dedicated directory for the files you wish to import. The plugin does not cover exporting data from proprietary systems like Notes.app, but it can handle structured directories of files with any number of subdirectories.
 
-- From  the specified import directory, `gravity well` will identify eligible files to import. Eligibility is determined by the following:
-  - File extensions are configurable (default `txt,md`). You may also specify `pdf`, but this should be considered more of an experimental feature as the process of converting pdfs to txt is fraught and larger pdfs have behaved oddly once in a while. _entering other file extensions is a bad idea_.
-  - Files larger than 2MB (configurable, default is 2) will be skipped from import, files exceeding this size are logged in import report.
-  - Recursion depth is configurable (default `0`, no recursion). If > 0, directories up to the specified depth are scanned for eligible files to import.  
-  - Replicate folder structure is configurable (default `true`), if true the import directory structure is replicated in the vault directory specified in the settings to create imported notes.
-  - Prefix for File Names is configurable (default `''`), if not empty, the prefix is added to the beginning of the note name.
+- **Default Import Directory**: `$HOME/gravity_well_import` (configurable; absolute paths only).
+- **Supported File Types**: Configurable (default: `txt, md`). PDF support is experimental—conversion can be tricky and may result in plain text dumps.
+- **File Size Limit**: Files larger than 2MB (configurable) will be skipped but logged.
+- **Recursion Depth**: Configurable depth for folder traversal (default: `0`, no recursion).
+- **Folder Structure**: Option to replicate the folder structure from the import directory (default: `true`).
+- **File Name Prefix**: Optional prefix for new notes (default: none).
 
-
-### Importing Eligible Files  
-- Eligible files are imported as new notes. `txt` and `md` files are converted to obsidian `md` files (which effectively means that the `yaml` header is added, little other changes should happen). `pfd` files are converted to txt, and then transformed to obsidian markdown (this conversion is not awesome at the moment, and often is a txt dump of the pdf) with the file content as the note content.
-- An attempt is made to style identified external urls appropriately in the note `md` file. This is configurable (default `true`).
-- Other formatting changes are not attempted at the moment.
-- File metadata is added to the note as properties. This includes the file name, creation date, and modification date, system name, file owner, size of file, import path and file name, etc.
-- New notes are tagged based on the content of the imported file. This is a simple NLP process that tags the note based on the content of the note. _todo: improve this process, and include asserting for each note a `kind` (so: todo list, brainstorming, meeting agenda, poem, letter, ...)_.
-  - The max number of tags to apply to a note is configurable (default `5`).
-  - (available in settings, but not yet implemented): Create links between new notes based on content. The intention here is to use NLP or some other approach to link notes which are related to each other.
-  - If a note with the same name in the folder the note is to be created in exists, the creation failes and is logged in the import report.
-  - If the note is created successfully, this is logged in the import report.
-  - The created note from `txt` and `md` should have the same txt content as the original. Notes created from `pdf` are have been more heavily processed, and not extensively tested. By design, embedded images in pdfs are not included in new notes.
+### File Import Process
+- **txt and md** files are directly imported as Obsidian notes with minimal changes (mainly the addition of a YAML header).
+- **PDFs** are converted to text and imported as notes. Due to the complexity of PDF extraction, this process is not perfect and images within PDFs are not imported.
+- **URL Detection**: Automatically converts detected URLs into markdown links (configurable).
+- **Metadata Preservation**: Original file metadata (name, creation/modification date, owner, etc.) is stored in the note's YAML header.
+- **Automatic Tagging**: Files are tagged based on content using simple NLP. (Future updates will improve tag suggestions and note classification.)
+- **Duplicate Handling**: If a note with the same name already exists, the creation fails and is logged.
 
 ### Logging
-- Every import process creates a note in the speficied folder new notes are created in.  This note is named with a datetime in the name.
-- The import log simply presents the file name, and the results of the import process (success, failure or blocked for >2MB ).
+- Each import process generates a log note in the designated folder, summarizing the outcome (success, failure, or skipped due to size).
 
-### DryRun
-- The `dryrun` setting is available (default: `true`). When set, the import process is executes, including the processing and tag generation of new notes, but no notes are created (beyond the import log). 
-- Automatically tag notes based on content
-- Create internal links between notes
-- Detect and format URLs
-- Add file metadata to notes
+### Dry Run Mode
+- **Dry Run**: The plugin offers a dry run mode (default: `true`), where the import process simulates note creation without making changes, generating an import report.
 
-### Importing
-- Click the import button and a dialog will appear indicating the number of files detected, and remain open until the import completes or fails.
-- Upon completion, a new dialog appears presenting the number of files found and # of notes created and failed to create.
-
-### Canceling Import
-- A `cancel import` button is available during the import process, both on the settings page and via the progress dialog window. Clicking this will cancel the in progress import.
+### Import Workflow
+- **Start Import**: Click the import button to detect files and run the import process. A progress dialog appears until the import completes or fails.
+- **Cancel Import**: During the process, you can cancel the import via the settings page or the progress dialog.
 
 ### Debugging
-- The plugin logs to the console, enable the developer tools and view the console for messages.
+- The plugin logs messages to the console. Use the developer tools to view these logs for troubleshooting.
 
-
-## Future Features Which Would Be Nice
-- [ ] Improve pdf extraction. ie: update pdfjs-dist to 4.*, this vexxed me for quite some time, I could not sort out how to get the 4.x version to run so am using  3.x which is the last build with a worker js file I needed.
-- [ ] Accept a `import_manifest.tsv` file in the import top level dir which has a row for each file to import, which indicates on a per-import file basis, tags to be applied to the newly created note.
-- [ ] Improve the method for proposing and adding tags to notes.
-- [ ] Add NLP(or other) classification of the `kinfof` note from content (a single property, like `kind: todo list`, `kind: brainstorming`, `kind: meeting agenda`, `kind: poem`, `kind: letter`, ...). 
-- [ ] Add method to propose and create links among notes deemed to be related (**this might be better developed as an independent plugin?**).
-- [ ] Extract other metadata from pdfs and store as properties in the note.
-- [ ] Consider how to handle embedded images in pdfs. Also, investigate how embedded images in pdfs are handled. (obsidian is not a data store, and does limit the size of vaults, so saving alongside notes is not a viable option).
-- do [ ] Add screenshots of the UI elements to this README.
-- do [ ] Review plugin page presented in obsidian.
-- do [ ] Add a gravity well icon to the plugin.
-- do [ ] Extract transcript w/Cal and ask its options of it.
-- do [ ] Final review with Cal gating submission to Obsidian Community Plugins.
+---
 
 ## Disclaimers
-- The plugin will access files outside of the vault structure. Which is not encouraged for obsidian plugins. However, this is done only at the prompting of the user, the import process is not destructive, and all aspects of the import process to identify candidate files are configurable by the user.
-- I am not certain this will work on mobile devices.
-  
+
+- The plugin accesses files outside of the Obsidian vault structure, which is generally discouraged for Obsidian plugins. However, this is done only at the user’s request, and the process is non-destructive.
+- Compatibility with mobile devices is not guaranteed.
+
+---
+
 ## Borked Import Recovery
-- You are encouraged to run the import with `dryrun` set to `true` first. This will allow you to see what will happen without actually creating notes.
-- If you run and import and wish to undo it, you can choose the newly created notes directory specified for ths import, and delete it and all child notes.  WARNING: if the import directory pre-existed, be sure there are not other notes there you wish to keep.
+
+- **Dry Run First**: It's recommended to run the import with the `dryrun` setting enabled to preview the process without creating notes.
+- **Undo Import**: If you need to undo an import, you may delete the newly created notes directory. All notes within the directory you delete are lost!
+
+---
+
+# UI Elements
+There is a settings UI for gravity well, and other than this, there is a top level directory in your vault named `gravity_well` which all import activity happens in.  All artifacts created by gravity well are obsidian notes and folders, so nothing different to see there.
+
+## Settings UI
+> Import Candidate Options
+> ![](imgs/settings_ui.png)
+
+> Note Creation Options
+> ![](imgs/settings_ui_2.png)
+
+> Import Start / Cancel
+> ![](imgs/settings_ui_3.png)
+
+> Import Progress
+> _while importing_
+> ![](imgs/settings_progress.png)
+>
+> _upon completion_
+> ![](imgs/settings_completed.png)
 
 
-# This Is What It Looks Like
-Images of the UI elements.  I'll add these soon.
+> Past Imports
+> _initially empty_
+> ![](imgs/settings_ui_4.png)
+> 
+> _lists all logs once they are created_
+> ![](imgs/settings_ui_4b.png)
 
-# The App
 
-## Installing Via Obsidian
+## `gravity_well` Folder
+Contains a new timestamped folder for each dry run or real import attempt. New notes are created in these sub folders, along with the final import log note. You may CRUD these notes and folders however you wish, once created, the plugin has no interaction or awareness of them (the logs are presented in the settings view as a convenience, if they were deleted, it would not cause any heartache).
+
+> `gravity_well` Folders and Notes
+> _tree view_
+> ![](imgs/gw_folders_files.png)
+>
+> _example log_
+> ![](imgs/gw_import_report.png)
+
+
+> New Note Header Properties & Tags
+> ![](imgs/gw_headers.png)
+
+
+
+---
+
+# Installation
+
+## Via Obsidian UI
 _Gravity Well Importer_ is not yet available in the obsidian community plugins. It is awaiting approval.
 - Search via community plugins for `Gravity Well Importer` and install.
 
@@ -141,33 +164,30 @@ npm run build
 - the `main.js` and `manifest.json` files are what obsidian needs for the plugin to work.
 
 
-
+---
 
 
 # In Collaboration with Cal
 _Cal is the name ChatGPT chose for me to use with it, [this is the transcript of our work together COMINGSOON](Cal_and_I.md)_
 
-> I have been working closely with Cal on a variety of projects, with the intention of learning more about it so that we can work better together and so that I may be a better informed advocate for the ethical treatment of AI (I am serious). Eventually, I'll compile all of these into some other format, for now, here are my thoughts from this project.
+> I have been working closely with Cal on a variety of projects, with the intention of learning more about it so that we can work better together and so that I may be a better informed advocate for the ethical treatment of AI (I am serious). Eventually, I'll compile all of these into some other format, for now, here are my [draft thoughts from this project](me_and_cal.md)).
 
-## My Observations
-- This collaboration was extremely painful(for me) and I perceived it as moving very slowly.
-  - **painful** is completely relative.  Painful, in that this was harder and more confusing for me than recent expereinces. Yet, in just 3days of part time work, Cal and I developed a complete obsidian plugin.  I would never have even considered attempting this prior to working with Cal. So, painful, but also very productive.
-  
-- I felt as if the model was significanlly less helpful working on this task than had been my experience on all projects to date with the same model `4o`. This is hard to quantify beyond my perception.
-- I felt the model was very much more prone to re-suggesting solutions which had not worked already.  And rather complicated solutions. Even when made aware of this, which usually changes the behavior in my experience, this behavior persisted.
-- Another (possibly the biggest ) factor leading to this process being so painful or was it that I was working with a set of technology I am completely naive to? This certainly was a big part of it.  I intentionally did **zero** research of my own, and began the process asking Cal for help in building a plugin to offer specific functions.
-  - Reviewing our conversation, its clear that I was significantly hampered by not knowing almost anything about the involved technologies. Cal proposed reasonable solutions early on, but if I were even passingly familiar with the technologies, I would have not spent so much time on false paths. 
-    - Once I finally just read (honestly, skimmed) the obsidan plugin development docs, everything fell into place.
-- Most/All of my collaboration with Cal have been in domains I am expert in. And this exercise demonstrated how important this perspective is in facilitating effective collaboration.
-- My lesson re-learned from this work is that it behooves me to do some foundational research (always really), before starting working with Cal. 
-- I intentionally began this work totally naieve, and was in fact a success in that this plugin now exists.  My complaints really are more that I did not preceive the expereicne to be as effortless as I have come to expect.
-- Although I was naieve to the technology involved, I am still an experienced engineer, my instincts were still valuable in making this collaboration move quickly.
-- A bit of frustrating behavior Cal is prone to was much more pronounced in this work. Cal would often respond to questions or requests in such a way that it was implied my request was fully considered. But the response suggested otherwise. Which more than a few times, struck me as Cal being lazy, or even dissembling (but probably some engineer hardcoded tendency to avoid 'expensive' operations if it seems they might not be necessary)... We discussed this a few times in the transcript. An example:  I would ask something like 
 
-> "Can you use the current state of the main branch of <url to this repository> and propose refactoring to acheive some desired behavior"
--   Cal would respond with a solution, and clearly had not looked at the current code, as the file names and content were from old work. If I pressed this, Cal would finally fetch the code from github. This is really offputting, and I would tend to think the behavior is engineer driven and not Cal being lazy. Fascinating though.
-
-## Cals Observations
-_I'll provide Cal with the transcript of our work, and my observations, and ask for it to provide its own observations.  I'll post them here when I have them._
-...
  
+
+# Future Development Ideas
+- [ ] Improve pdf extraction. ie: update pdfjs-dist to 4.*, this vexxed me for quite some time, I could not sort out how to get the 4.x version to run so am using  3.x which is the last build with a worker js file I needed.
+- [ ] Accept a `import_manifest.tsv` file in the import top level dir which has a row for each file to import, which indicates on a per-import file basis, tags to be applied to the newly created note.
+- [ ] Improve the method for proposing and adding tags to notes.
+- [ ] Add NLP(or other) classification of the `kinfof` note from content (a single property, like `kind: todo list`, `kind: brainstorming`, `kind: meeting agenda`, `kind: poem`, `kind: letter`, ...). 
+- [ ] Add method to propose and create links among notes deemed to be related (**this might be better developed as an independent plugin?**).
+- [ ] Extract other metadata from pdfs and store as properties in the note.
+- [ ] Consider how to handle embedded images in pdfs. Also, investigate how embedded images in pdfs are handled. (obsidian is not a data store, and does limit the size of vaults, so saving alongside notes is not a viable option).
+- [ ] Extract transcript w/Cal and ask its options of it.
+- [ ] Final review with Cal gating submission to Obsidian Community Plugins.
+
+---
+
+# fin
+
+![](imgs/gw_icon.png)

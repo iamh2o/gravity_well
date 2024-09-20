@@ -166,17 +166,36 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         containerEl.empty();
 
-        // Create a div for positioning the "Reset to Default" button at the top right
+        // Create a header div to hold the title and reset button, and position them correctly
         const header = containerEl.createDiv({ cls: 'settings-header' });
         header.style.display = 'flex';
         header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';  // Ensures vertical alignment is centered
 
-        containerEl.createEl('h1', { text: 'Gravity Well Settings' });
 
-        const resetButton = header.createEl('button', { text: 'Reset to Default', cls: 'reset-button' });
+        // Create title with an image icon on the left side
+        const title = header.createDiv({ cls: 'plugin-title' });
+        
+
+        const iconUrl = 'https://raw.githubusercontent.com/iamh2o/gravity_well/main/imgs/gw_icon.png';
+        // Create an img element for the custom icon using the URL
+        const icon = title.createEl('img', { cls: 'plugin-icon' });
+        icon.src = iconUrl;
+        icon.style.width = '24px';  // Adjust size as needed
+        icon.style.height = '24px'; // Adjust size as needed
+        icon.style.marginRight = '10px';  // Adjust margin as needed
+
+        // Create title on the left side
+        title.createEl('h1', { text: 'Gravity Well Settings' });
+        
+        // Create the "Reset to Default" button on the right side
+        const resetButton = header.createEl('button', { text: 'reset to defaults', cls: 'reset-button' });
         resetButton.style.margin = '0';
         resetButton.style.padding = '5px';
         resetButton.style.cursor = 'pointer';
+
+        // Align the button to the right
+        resetButton.style.alignSelf = 'flex-end';
 
         // When the button is clicked, reset only Gravity Well Plugin settings to their defaults
         resetButton.onclick = async () => {
@@ -190,6 +209,7 @@ class GravityWellSettingTab extends PluginSettingTab {
                 new Notice('Gravity Well settings have been reset to default.');
             }
         };
+
         containerEl.createEl('h2', { text: 'New Notes Destination' });
 
         // Mention that files will be created in datetime stamped subdirs of the gravity_well folder
