@@ -1,7 +1,7 @@
 {
     "id": "gravity_well",
     "name": "gravity_well",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "A tool to import text, markdown, and PDF files as new notes, add NPL derived tags, and track other properties.",
     "main": "main.js",
     "scripts": {

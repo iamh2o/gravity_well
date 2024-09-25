@@ -49,9 +49,25 @@ export default class GravityWellPlugin extends Plugin {
     isImportInProgress: boolean = false;
     progressModal: ProgressModal | null = null;
 
+
+
+    isMobile(): boolean {
+        // Simplified mobile detection using userAgent
+        const userAgent = navigator.userAgent.toLowerCase();
+        return /android|iphone|ipad|ipod|windows phone|mobile/i.test(userAgent);
+    }
+
     async onload() {
         console.log('Loading Gravity Well Plugin');
 
+
+        // Check if the app is running on a mobile device when the plugin is enabled
+        if (this.isMobile()) {
+            new Notice("Gravity Well Plugin is not supported on mobile devices. Please use this plugin on a desktop device.");
+            // Disable the plugin immediately after showing the message
+            return; // Stop further execution
+        }
+        
         // Load settings
         await this.loadSettings();
 
