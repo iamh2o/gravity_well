@@ -9,14 +9,20 @@ import winkNLP from 'wink-nlp';
 import model from 'wink-eng-lite-web-model';
 import natural from 'natural';
 import { ProgressModal } from '../ui/ProgressModal';
+import { debug } from 'console';
 
 // Initialize wink-nlp
 const nlp = winkNLP(model);
 const its = nlp.its;
 const as = nlp.as;
 
+interface GlobalWorkerOptions {
+    workerSrc: string;
+}
+
 // Set the workerSrc for PDF.js
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+(pdfjsLib as { GlobalWorkerOptions: GlobalWorkerOptions }).GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
 
 // Define custom stop words
 const customStopWords: Set<string> = new Set([
@@ -74,9 +80,12 @@ export class FileHandler {
             detectAdditionalMetadata = false,
             globalTags = '',
             maxFileSizeMB = 2,
+            debugEnabled = false,
         } = settings;
 
-        console.log(`Starting file processing in directory: ${importDirectory} with extensions: ${fileExtensions}`);
+        if (debugEnabled) {
+            console.log(`Starting file processing in directory: ${importDirectory} with extensions: ${fileExtensions}`);
+        }
 
         // Validate file extensions
         const allowedExtensions = ['txt', 'md', 'pdf'];
@@ -106,7 +115,7 @@ export class FileHandler {
         const targetDirectory = path.join(baseTargetDirectory, formattedDate);
 
         // Traverse the directory and get the files
-        const files = await traverseDirectory(importDirectory, extensionsArray, maxRecursionDepth);
+        const files = await traverseDirectory(importDirectory, extensionsArray, maxRecursionDepth, debugEnabled);
 
         const totalFilesDiscovered = files.length;
         let totalNotesCreated = 0;
@@ -124,7 +133,9 @@ export class FileHandler {
 
         for (const file of files) {
             if (this.isCancelled || progressModal.isCancelled) {
-                console.log('Import cancelled by user.');
+                if (debugEnabled) {
+                    console.log('Import cancelled by user.');
+                }
                 break;
             }
 
@@ -136,10 +147,14 @@ export class FileHandler {
 
                 if (fileSizeInMB > maxFileSizeMB) {
                     if (dryRun) {
-                        console.warn(`Dry Run: Would block importing file ${file} as it exceeds ${maxFileSizeMB}MB`);
+                        if (debugEnabled) {                            
+                            console.warn(`Dry Run: Would block importing file ${file} as it exceeds ${maxFileSizeMB}MB`);
+                        }
                         logEntries.push({ filePath: file, status: `Would block importing as exceeds ${maxFileSizeMB}MB` });
                     } else {
-                        console.warn(`Blocked importing file ${file} as it exceeds ${maxFileSizeMB}MB`);
+                        if (debugEnabled) {
+                            console.warn(`Blocked importing file ${file} as it exceeds ${maxFileSizeMB}MB`);
+                        }
                         logEntries.push({ filePath: file, status: `Blocked importing as exceeds ${maxFileSizeMB}MB` });
                     }
                     totalFailures++;
@@ -148,8 +163,8 @@ export class FileHandler {
                     continue;
                 }
 
-                const metadata = await extractMetadata(file, addFileMetadata, detectAdditionalMetadata);
-                let content = await convertToMarkdown(file);
+                const metadata = await extractMetadata(file, addFileMetadata, detectAdditionalMetadata, debugEnabled);
+                let content = await convertToMarkdown(file, debugEnabled);
 
                 // Detect and convert external URLs
                 if (detectExternalUrls) {
@@ -174,18 +189,25 @@ export class FileHandler {
                         targetDirectory,
                         importDirectory,
                         globalTags,
+                        debugEnabled,
                     });
-                    console.log(`Created note: ${path.join(targetDirectory, filePrefix + path.basename(file, path.extname(file)) + '.md')}`);
+                    if (debugEnabled) {
+                        console.log(`Created note: ${path.join(targetDirectory, filePrefix + path.basename(file, path.extname(file)) + '.md')}`);
+                    }
                     // Log successful import
                     logEntries.push({ filePath: file, status: 'Created note' });
                     totalNotesCreated++;
                 } else {
-                    console.log(`Dry Run: Would create note for ${file} with metadata:`, metadata);
+                    if (debugEnabled) {
+                        console.log(`Dry Run: Would create note for ${file} with metadata:`, metadata);
+                    }
                     // Log dry run status
                     logEntries.push({ filePath: file, status: 'Would create note' });
                 }
             } catch (error) {
-                console.error(`Error processing file ${file}:`, error);
+                if (debugEnabled) {
+                    console.error(`Error processing file ${file}:`, error);
+                }
                 if (!dryRun) {
                     // Log failed import
                     logEntries.push({ filePath: file, status: 'Failed to create note' });
@@ -232,11 +254,15 @@ export class FileHandler {
                 targetDirectory,
                 importDirectory,
                 globalTags: 'gravitywelllog',
+                debugEnabled
             });
-
-            console.log(`Import log created: ${path.join(targetDirectory, logFileName)}`);
+            if (debugEnabled) {
+                console.log(`Import log created: ${path.join(targetDirectory, logFileName)}`);
+            }
         } catch (error) {
-            console.error(`Error creating import log:`, error);
+            if (debugEnabled) {
+                console.error(`Error creating import log:`, error);
+            }
         }
 
         // Show completion Notice
@@ -262,7 +288,8 @@ export async function traverseDirectory(
     directory: string,
     extensions: string[],
     maxDepth: number,
-    currentDepth = 0
+    currentDepth = 0, 
+    debugEnabled = false
 ): Promise<string[]> {
     let files: string[] = [];
 
@@ -272,7 +299,9 @@ export async function traverseDirectory(
     try {
         dirents = await fs.promises.readdir(directory, { withFileTypes: true });
     } catch (error) {
-        console.error(`Error reading directory ${directory}:`, error);
+        if (debugEnabled) {
+            console.error(`Error reading directory ${directory}:`, error);
+        }
         return files;
     }
 
@@ -283,7 +312,7 @@ export async function traverseDirectory(
 
         const res = path.resolve(directory, dirent.name);
         if (dirent.isDirectory()) {
-            const subFiles = await traverseDirectory(res, extensions, maxDepth, currentDepth + 1);
+            const subFiles = await traverseDirectory(res, extensions, maxDepth, currentDepth + 1, debugEnabled);
             files = files.concat(subFiles);
         } else if (dirent.isFile()) {
             const ext = path.extname(dirent.name).toLowerCase().slice(1); // Remove the dot
@@ -299,7 +328,8 @@ export async function traverseDirectory(
 export async function extractMetadata(
     filePath: string,
     addFileMetadata: boolean,
-    detectAdditionalMetadata: boolean
+    detectAdditionalMetadata: boolean,
+    debugEnabled = false
 ): Promise<any> {
     const metadata: any = {
         filePath,
@@ -334,13 +364,17 @@ export async function extractMetadata(
                         ownerName = 'unknown';
                     }
                 } catch (error) {
-                    console.error('Error getting user info:', error);
+                    if (debugEnabled) {
+                        console.error('Error getting user info:', error);
+                    }
                     ownerName = 'unknown';
                 }
                 metadata.owner = ownerName;
             }
         } catch (error) {
-            console.error(`Error extracting metadata for file ${filePath}:`, error);
+            if (debugEnabled) {
+                console.error(`Error extracting metadata for file ${filePath}:`, error);
+            }
             metadata.importStatus = 'incomplete';
         }
     }
@@ -348,7 +382,7 @@ export async function extractMetadata(
     return metadata;
 }
 
-export async function convertToMarkdown(filePath: string): Promise<string> {
+export async function convertToMarkdown(filePath: string, debugEnabled:boolean): Promise<string> {
     const ext = path.extname(filePath).toLowerCase();
     const resolvedFilePath = path.resolve(filePath);
 
@@ -371,7 +405,9 @@ export async function convertToMarkdown(filePath: string): Promise<string> {
 
             return content;
         } catch (error) {
-            console.error(`Error converting PDF file ${resolvedFilePath}:`, error);
+            if (debugEnabled) { 
+                console.error(`Error converting PDF file ${resolvedFilePath}:`, error);
+            }
             return '';
         }
     } else {
@@ -380,7 +416,9 @@ export async function convertToMarkdown(filePath: string): Promise<string> {
             const content = await fs.promises.readFile(resolvedFilePath, 'utf8');
             return content;
         } catch (error) {
-            console.error(`Error reading file ${resolvedFilePath}:`, error);
+            if (debugEnabled) {
+                console.error(`Error reading file ${resolvedFilePath}:`, error);
+            }
             return '';
         }
     }
@@ -460,9 +498,10 @@ export async function createNote(
         targetDirectory: string,
         importDirectory: string,
         globalTags: string,
+        debugEnabled: boolean,
     }
 ) {
-    const { replicateFolderStructure, filePrefix, targetDirectory, importDirectory, globalTags } = options;
+    const { replicateFolderStructure, filePrefix, targetDirectory, importDirectory, globalTags , debugEnabled} = options;
 
     // Normalize the target directory within the vault
     const vaultTargetDir = normalizePath(targetDirectory);
@@ -496,7 +535,9 @@ export async function createNote(
         await vault.createFolder(noteDir);
     } else if (!(existingDir instanceof TFolder)) {
         // The path exists but is not a folder
-        console.error(`Cannot create folder ${noteDir}: a file with the same name already exists.`);
+        if (debugEnabled) {
+            console.error(`Cannot create folder ${noteDir}: a file with the same name already exists.`);
+        }
         return;
     }
     // If the folder exists and is a TFolder, proceed without creating it
@@ -504,7 +545,9 @@ export async function createNote(
     // Check if the note already exists in the vault
     const existingFile = vault.getAbstractFileByPath(normalizedNotePath);
     if (existingFile) {
-        console.log(`File ${normalizedNotePath} already exists in the vault. Skipping.`);
+        if (debugEnabled) {
+            console.log(`File ${normalizedNotePath} already exists in the vault. Skipping.`);
+        }
         return;
     }
 
@@ -537,5 +580,7 @@ export async function createNote(
 
     // Create the note within the vault
     await vault.create(normalizedNotePath, finalContent);
-    console.log(`Created note: ${normalizedNotePath}`);
+    if (debugEnabled) {
+        console.log(`Created note: ${normalizedNotePath}`);
+    }
 }

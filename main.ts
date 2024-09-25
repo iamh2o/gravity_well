@@ -22,6 +22,7 @@ interface GravityWellSettings {
     importDirectory: string;
     globalTags: string;
     maxFileSizeMB: number;
+    debugEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: GravityWellSettings = {
@@ -39,6 +40,7 @@ const DEFAULT_SETTINGS: GravityWellSettings = {
     importDirectory: "", // We'll set the default in loadSettings
     globalTags: "",
     maxFileSizeMB: 2,
+    debugEnabled: false,
 }
 
 export default class GravityWellPlugin extends Plugin {
@@ -168,9 +170,9 @@ class GravityWellSettingTab extends PluginSettingTab {
 
         // Create a header div to hold the title and reset button, and position them correctly
         const header = containerEl.createDiv({ cls: 'settings-header' });
-        header.style.display = 'flex';
-        header.style.justifyContent = 'space-between';
-        header.style.alignItems = 'center';  // Ensures vertical alignment is centered
+        // header.style.display = 'flex';
+        // header.style.justifyContent = 'space-between';
+        // header.style.alignItems = 'center';  // Ensures vertical alignment is centered
 
 
         // Create title with an image icon on the left side
@@ -181,21 +183,21 @@ class GravityWellSettingTab extends PluginSettingTab {
         // Create an img element for the custom icon using the URL
         const icon = title.createEl('img', { cls: 'plugin-icon' });
         icon.src = iconUrl;
-        icon.style.width = '24px';  // Adjust size as needed
-        icon.style.height = '24px'; // Adjust size as needed
-        icon.style.marginRight = '10px';  // Adjust margin as needed
+        // icon.style.width = '24px';  // Adjust size as needed
+        // icon.style.height = '24px'; // Adjust size as needed
+        // icon.style.marginRight = '10px';  // Adjust margin as needed
 
         // Create title on the left side
         title.createEl('h1', { text: 'Gravity Well Settings' });
         
         // Create the "Reset to Default" button on the right side
         const resetButton = header.createEl('button', { text: 'reset to defaults', cls: 'reset-button' });
-        resetButton.style.margin = '0';
-        resetButton.style.padding = '5px';
-        resetButton.style.cursor = 'pointer';
+        // resetButton.style.margin = '0';
+        // resetButton.style.padding = '5px';
+        // resetButton.style.cursor = 'pointer';
 
         // Align the button to the right
-        resetButton.style.alignSelf = 'flex-end';
+        // resetButton.style.alignSelf = 'flex-end';
 
         // When the button is clicked, reset only Gravity Well Plugin settings to their defaults
         resetButton.onclick = async () => {
@@ -427,6 +429,17 @@ class GravityWellSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
+
+        new Setting(containerEl)
+        .setName('Print Debug Messages To Developer Console')
+        .setDesc('Toggle printing debug messages to the developer console.')
+        .addToggle(toggle => toggle
+            .setValue(this.plugin.settings.debugEnabled)
+            .onChange(async (value) => {
+                this.plugin.settings.debugEnabled = value;
+                await this.plugin.saveSettings();
+            }));
+
         // Group 4: Import Action
         new Setting(containerEl)
             .setName('Import Files')
@@ -477,12 +490,12 @@ class GravityWellSettingTab extends PluginSettingTab {
             const gravityWellLogs: string[] = [];
         
             // Debugging: Log all markdown files to ensure they're being detected
-            console.log("All Markdown Files:", allMarkdownFiles);
+            if (this.plugin.settings.debugEnabled) console.log("All Markdown Files:", allMarkdownFiles);
         
             // Filter files by the gravitywelllog tag, checking both inline tags and YAML front matter
             allMarkdownFiles.forEach(file => {
                 const cachedFile = this.plugin.app.metadataCache.getFileCache(file);
-                console.log(`Checking file: ${file.path}`, cachedFile); // Debugging line to inspect metadata cache
+                if (this.plugin.settings.debugEnabled) console.log(`Checking file: ${file.path}`, cachedFile); // Debugging line to inspect metadata cache
         
                 let tagsFound = false;
         
@@ -502,7 +515,7 @@ class GravityWellSettingTab extends PluginSettingTab {
                 // If the tag was found in either place, add the file to the list
                 if (tagsFound) {
                     gravityWellLogs.push(file.path);
-                    console.log(`Found gravitywelllog in: ${file.path}`); // Debugging line to confirm tag detection
+                    if (this.plugin.settings.debugEnabled) console.log(`Found gravitywelllog in: ${file.path}`); // Debugging line to confirm tag detection
                 }
             });
         

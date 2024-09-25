@@ -1,7 +1,7 @@
 {
     "id": "gravity_well",
     "name": "gravity_well",
-    "version": "0.1.16",
+    "version": "0.2.0",
     "description": "A tool to import text, markdown, and PDF files as new notes, add NPL derived tags, and track other properties.",
     "main": "main.js",
     "scripts": {
@@ -49,10 +49,10 @@
         "wink-eng-lite-web-model": "^1.8.0",
         "wink-nlp": "^2.3.0"
     },
-	"dependencies": {
-	  "keyword-extractor": "^0.0.28",
-	  "natural": "^8.0.1",
-	  "wink-eng-lite-web-model": "^1.8.0",
-	  "wink-nlp": "^2.3.0"
-	}
+    "dependencies": {
+        "keyword-extractor": "^0.0.28",
+        "natural": "^8.0.1",
+        "wink-eng-lite-web-model": "^1.8.0",
+        "wink-nlp": "^2.3.0"
+    }
 }
