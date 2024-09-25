@@ -163,10 +163,25 @@ class GravityWellSettingTab extends PluginSettingTab {
         this.plugin = plugin;
     }
 
+
+    // Simplified isMobile method using only userAgent
+    isMobile(): boolean {
+        const userAgent = navigator.userAgent.toLowerCase();
+        return /android|iphone|ipad|ipod|windows phone|mobile/i.test(userAgent);
+    }
+
     display(): void {
         let { containerEl } = this;
 
         containerEl.empty();
+
+
+        // Check if the app is running on a mobile device
+        if (this.isMobile()) {
+            containerEl.createEl('h2', { text: 'Gravity Well Plugin' });
+            containerEl.createEl('p', { text: 'This plugin is designed for desktop use only and cannot be configured on mobile devices. Please disable and uninstall, or checkout the github repo and extend :-).' });
+            return; // Don't show the settings on mobile
+        }
 
         // Create a header div to hold the title and reset button, and position them correctly
         const header = containerEl.createDiv({ cls: 'settings-header' });
