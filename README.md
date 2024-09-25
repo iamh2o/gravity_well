@@ -197,3 +197,4 @@ _Cal is the name ChatGPT chose for me to use with it, [this is the transcript of
 # fin
 
 ![](imgs/gw_icon.png)
+ 
